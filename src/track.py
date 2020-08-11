@@ -48,11 +48,12 @@ def write_results(filename, results, data_type):
 def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30):
     if save_dir:
         mkdir_if_missing(save_dir)
-    tracker = JDETracker(opt, frame_rate=frame_rate)
+    tracker = JDETracker(opt, frame_rate=frame_rate) # torch model
     timer = Timer()
     results = []
     frame_id = 0
     for path, img, img0 in dataloader:
+        # img0-resized frame / img-Padded resize img0+normalization / path = num
         if frame_id % 20 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
 
@@ -60,7 +61,8 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         timer.tic()
         blob = torch.from_numpy(img).cuda().unsqueeze(0)
         online_targets = tracker.update(blob, img0)
-        online_tlwhs = []
+        # do clean works
+        online_tlwhs = []  # tlwh is actually the coordinate, which will be written in results.txt
         online_ids = []
         for t in online_targets:
             tlwh = t.tlwh

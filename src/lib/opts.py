@@ -16,7 +16,7 @@ class opts(object):
     self.parser.add_argument('--test', action='store_true')
     #self.parser.add_argument('--load_model', default='../models/ctdet_coco_dla_2x.pth',
                              #help='path to pretrained model')
-    self.parser.add_argument('--load_model', default='',
+    self.parser.add_argument('--load_model', default='../model/all_dla34.pth',
                              help='path to pretrained model')
     self.parser.add_argument('--resume', action='store_true',
                              help='resume an experiment. '
@@ -107,7 +107,7 @@ class opts(object):
     self.parser.add_argument('--val_mot17', default=False, help='val mot17')
     self.parser.add_argument('--val_mot20', default=False, help='val mot20')
     self.parser.add_argument('--test_mot20', default=False, help='test mot20')
-    self.parser.add_argument('--conf_thres', type=float, default=0.6, help='confidence thresh for tracking')
+    self.parser.add_argument('--conf_thres', type=float, default=0.4, help='confidence thresh for tracking')
     self.parser.add_argument('--det_thres', type=float, default=0.3, help='confidence thresh for detection')
     self.parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresh for nms')
     self.parser.add_argument('--track_buffer', type=int, default=30, help='tracking buffer')

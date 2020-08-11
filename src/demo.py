@@ -27,6 +27,7 @@ def demo(opt):
     frame_rate = dataloader.frame_rate
 
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
+    # entrance dataset out_dir & basic info
     eval_seq(opt, dataloader, 'mot', result_filename, save_dir=frame_dir, show_image=False, frame_rate=frame_rate)
 
     if opt.output_format == 'video':

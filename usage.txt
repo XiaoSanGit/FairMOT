@@ -1,0 +1,5 @@
+1/lib cypthon-bbox should download manually in windows.
+2/only torch version<=1.4 can use. accordingly, u need cuda 10.1
+3/download dla/hrnet_v2 model and save.
+  download dla34-ba72cf86.pth and save in path\to\.cache\torch\checkpoints if auto-download failed. this is ImageNet
+
