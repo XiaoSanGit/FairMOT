@@ -3,6 +3,9 @@ import os
 import argparse
 import torch
 import torch.nn as nn
+from torchvision.models import AlexNet
+from torchviz import make_dot
+import tensorwatch as tw
 from torch.autograd import Variable
 from torchvision import datasets, transforms
 # import util
@@ -36,14 +39,19 @@ if base_number <= 0:
     print('\r\n!base_number is error!\r\n')
     base_number = 1
 
-# model loading
+# model loading and checking and vis
 opt = opts().init()
-model = create_model(opt.arch, opt.heads, opt.head_conv)
+model = create_model(opt.arch, opt.heads, opt.head_conv) # dla_34, from opt.task, -1 default
 print("=> loading checkpoint '{}'".format(args.model))
 model = load_model(model, opt.load_model)
 print('***********************************Model**************************************')
 print(model)
-# input = torch.randn(1, 3, 1088, 608)
+img = tw.draw_model(model,[1, 3, 1088, 608])
+img.save(r'dla_structure.jpg')
+# x = torch.randn(1, 3, 1088, 608)
+# y=model(x)
+# g = make_dot(y[0]['reg'])
+# g.render('dla34_structure', view=False)
 # macs, params = profile(model, inputs=(input, ))
 # print(macs/(10**6),params/(10**6)," M")
 print('parameters(M):', (sum(param.numel() for param in model.parameters()))/10**6)
@@ -51,13 +59,13 @@ print('parameters(M):', (sum(param.numel() for param in model.parameters()))/10*
 total = 0
 i = 0
 for m in model.modules():
-    # 如果是BN层统计一下通道
+    # calculate the channel num of BN layer
     if isinstance(m, nn.BatchNorm2d):
         if i < layers - 1:
             i += 1
             total += m.weight.data.shape[0]
 
-# 确定剪枝的全局阈值
+# calculate the num of all weights
 bn = torch.zeros(total)
 index = 0
 i = 0
@@ -68,15 +76,15 @@ for m in model.modules():
             size = m.weight.data.shape[0]
             bn[index:(index+size)] = m.weight.data.abs().clone()
             index += size
-# 按照权值大小排序
+# rank as the weight, ↑
 y, j = torch.sort(bn)
 thre_index = int(total * args.percent)
 if thre_index == total:
     thre_index = total - 1
-# 确定要剪枝的阈值
+# set the threshold of weight
 thre_0 = y[thre_index]
 
-#********************************预剪枝*********************************
+#********************************PRE-PRUNE*********************************
 pruned = 0
 cfg_0 = []
 cfg = []
@@ -88,16 +96,16 @@ for k, m in enumerate(model.modules()):
             i += 1
 
             weight_copy = m.weight.data.clone()
-            # 要保留的通道
+            # channels needed
             mask = weight_copy.abs().gt(thre_0).float()
             remain_channels = torch.sum(mask)
-            # 如果全部剪掉的话就提示应该调小剪枝程度了
+            # if all channels in this layer is pruned
             if remain_channels == 0:
                 print('\r\n!please turn down the prune_ratio!\r\n')
                 remain_channels = 1
                 mask[int(torch.argmax(weight_copy))]=1
 
-            # ******************规整剪枝******************
+            # ******************Regular Prune, make the channel num looks regular******************
             v = 0
             n = 1
             if remain_channels % base_number != 0:
@@ -116,7 +124,7 @@ for k, m in enumerate(model.modules()):
                     y, j = torch.sort(weight_copy.abs())
                     thre_1 = y[-remain_channels]
                     mask = weight_copy.abs().ge(thre_1).float()
-            # 剪枝掉的通道数个数
+            # the num of pruned channels
             pruned = pruned + mask.shape[0] - torch.sum(mask) # calcualte channel left
             m.weight.data.mul_(mask)
             m.bias.data.mul_(mask) # pre-prune batch_size channel
@@ -129,7 +137,7 @@ pruned_ratio = float(pruned/total)
 print('\r\n!pre-pruned finished!')
 print('total_pruned_ratio: ', pruned_ratio)
 
-#********************************剪枝*********************************
+#********************************PRUNE*********************************
 newmodel = create_model(opt.arch, opt.heads, opt.head_conv)
 # nin.Net(cfg)  # TODO must modify the original model structure?
 newmodel.cuda()
@@ -169,9 +177,9 @@ for [m0, m1] in zip(model.modules(), newmodel.modules()):
             if idx1.size == 1:
                 idx1 = np.resize(idx1, (1,))
             tmp = m0.weight
-            w = m0.weight.data[:, idx0, :, :].clone()
+            w = m0.weight.data[:, idx0.tolist(), :, :].clone()
             print(w.shape)
-            m1.weight.data = w[idx1, :, :, :].clone()
+            m1.weight.data = w[idx1.tolist(), :, :, :].clone()
             if m0.bias is not None:
                 m1.bias.data = m0.bias.data[idx1].clone()
         else:
@@ -189,18 +197,8 @@ for [m0, m1] in zip(model.modules(), newmodel.modules()):
         m1.weight.data = m0.weight.data[:, idx0].clone()
         if m0.bias is not None:
             m1.bias.data = m0.bias.data.clone()
-# #******************************剪枝后model测试*********************************
-# print('新模型: ', newmodel)
-# print('**********剪枝后新模型测试*********')
-# model = newmodel
-# test()
-#******************************剪枝后model保存*********************************
-print('**********剪枝后新模型保存*********')
-torch.save({'cfg': cfg, 'state_dict': newmodel.state_dict()}, args.save)
-print('**********保存成功*********\r\n')
 
-# #*****************************剪枝前后model对比********************************
-# print('************旧模型结构************')
-# print(cfg_0)
-# print('************新模型结构************')
-# print(cfg, '\r\n')
+#******************************model save*********************************
+print('**********Save Pruned Model*********')
+torch.save({'cfg': cfg, 'state_dict': newmodel.state_dict()}, args.save)
+print('**********Save Model Success*********\r\n')
