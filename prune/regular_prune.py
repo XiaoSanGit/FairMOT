@@ -46,8 +46,8 @@ print("=> loading checkpoint '{}'".format(args.model))
 model = load_model(model, opt.load_model)
 print('***********************************Model**************************************')
 print(model)
-img = tw.draw_model(model,[1, 3, 1088, 608])
-img.save(r'dla_structure.jpg')
+# img = tw.draw_model(model,[1, 3, 1088, 608])
+# img.save(r'dla_structure.jpg')
 # x = torch.randn(1, 3, 1088, 608)
 # y=model(x)
 # g = make_dot(y[0]['reg'])
@@ -139,7 +139,7 @@ print('total_pruned_ratio: ', pruned_ratio)
 
 #********************************PRUNE*********************************
 newmodel = create_model(opt.arch, opt.heads, opt.head_conv)
-# nin.Net(cfg)  # TODO must modify the original model structure?
+# nin.Net(cfg)  # TODO must modify the original model structure
 newmodel.cuda()
 layer_id_in_cfg = 0
 start_mask = torch.ones(3)

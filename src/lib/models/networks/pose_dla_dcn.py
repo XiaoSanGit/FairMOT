@@ -287,7 +287,8 @@ class DLA(nn.Module):
         x = self.base_layer(x)
         for i in range(6):
             x = getattr(self, 'level{}'.format(i))(x)
-            y.append(x)
+            y.append(x) # base output -> level0 -> level1.... append output of each level
+            # here. we get channel 16,32,64,128,256,512. the image size becomes 1/2 per level
         return y
 
     def load_pretrained_model(self, data='imagenet', name='dla34', hash='ba72cf86'):
@@ -426,12 +427,23 @@ class Interpolate(nn.Module):
 class DLASeg(nn.Module):
     def __init__(self, base_name, heads, pretrained, down_ratio, final_kernel,
                  last_level, head_conv, out_channel=0):
+        # down_ratio=4,
+        # final_kernel=1,
+        # last_level=5,
+        # head_conv=head_conv)
         super(DLASeg, self).__init__()
         assert down_ratio in [2, 4, 8, 16]
-        self.first_level = int(np.log2(down_ratio))
-        self.last_level = last_level
+        self.first_level = int(np.log2(down_ratio))  # =2
+        self.last_level = last_level  # =5
         self.base = globals()[base_name](pretrained=pretrained)
+        #  when opt=dla_34:: self.base = following
+        # model = DLA([1, 1, 1, 2, 2, 1],
+        #                 [16, 32, 64, 128, 256, 512],
+        #                 block=BasicBlock, **kwargs)
+        #     if pretrained:
+        #         model.load_pretrained_model(data='imagenet', name='dla34', hash='ba72cf86')
         channels = self.base.channels
+        # here we acutually only deal with the level2~level5, which is the tree structure
         scales = [2 ** i for i in range(len(channels[self.first_level:]))]
         self.dla_up = DLAUp(self.first_level, channels[self.first_level:], scales)
 
@@ -442,7 +454,7 @@ class DLASeg(nn.Module):
                             [2 ** i for i in range(self.last_level - self.first_level)])
         
         self.heads = heads
-        for head in self.heads:
+        for head in self.heads: # TODO here is no BN layer actually. so we ignore the following?
             classes = self.heads[head]
             if head_conv > 0:
               fc = nn.Sequential(
